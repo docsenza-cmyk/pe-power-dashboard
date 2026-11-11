@@ -1,0 +1,14 @@
+### Get all equipment (should show empty or your items)
+GET http://localhost:5000/api/equipment
+
+### Add a new equipment (change the details to your real machine)
+POST http://localhost:5000/api/equipment
+Content-Type: application/json
+
+{
+  "name": "Main Pump 1",
+  "type": "Pump",
+  "status": "Operational",
+  "lastMaintenance": "2025-11-15",
+  "nextMaintenance": "2026-05-15"
+}
