@@ -9,6 +9,8 @@ import {
   Alert 
 } from '@mui/material';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 const LoginPage = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,7 +19,7 @@ const LoginPage = ({ onLoginSuccess }) => {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/google', {
+      const res = await axios.post(`${API_URL}/api/auth/google`, {
         token: credentialResponse.credential,
       });
       
@@ -44,13 +46,13 @@ const LoginPage = ({ onLoginSuccess }) => {
     }
 
     try {
-      await axios.post('http://localhost:5000/api/auth/set-password', {
+      await axios.post(`${API_URL}/api/auth/set-password`, {
         email,
         password,
       });
       setIsSettingPassword(false);
 
-      const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+      const res = await axios.post(`${API_URL}/api/auth/login`, { email, password });
       localStorage.setItem('token', res.data.token);
       onLoginSuccess(res.data.user);
     } catch (err) {
@@ -61,7 +63,7 @@ const LoginPage = ({ onLoginSuccess }) => {
 
   const handleEmailLogin = async () => {
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+      const res = await axios.post(`${API_URL}/api/auth/login`, { email, password });
       localStorage.setItem('token', res.data.token);
       onLoginSuccess(res.data.user);
     } catch (err) {
@@ -79,7 +81,7 @@ const LoginPage = ({ onLoginSuccess }) => {
         borderRadius: 4,
         boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
         backdropFilter: 'blur(14px)',
-        backgroundColor: 'rgba(25, 25, 45, 0.82)', // semi-dark + transparency
+        backgroundColor: 'rgba(25, 25, 45, 0.82)',
         border: '1px solid rgba(255, 255, 255, 0.18)',
         color: '#ffffff',
       }}
