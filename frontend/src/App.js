@@ -1,32 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Container, Typography, Tabs, Tab, Box, Button, IconButton, AppBar, Toolbar
-} from '@mui/material';
-import { Delete as DeleteIcon, Logout as LogoutIcon } from '@mui/icons-material';
-import axios from 'axios';
+import React from 'react';
+import { Container, Typography, Box } from '@mui/material';
 import EquipmentTable from './components/EquipmentTable';
 import FacilityForm from './components/FacilityForm';
-import LoginPage from './components/LoginPage'; // ← new import
+import { useState, useEffect, useCallback } from 'react';
+import { Tabs, Tab, Button, IconButton } from '@mui/material';
+import { Delete as DeleteIcon } from '@mui/icons-material';
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 function App() {
   const [facilities, setFacilities] = useState([]);
   const [selectedFacility, setSelectedFacility] = useState('all');
   const [openFacilityForm, setOpenFacilityForm] = useState(false);
-  const [user, setUser] = useState(null); // logged-in user
-
-  // Check if user is already logged in (from localStorage)
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-  }, []);
 
   const fetchFacilities = useCallback(() => {
-    axios.get('http://localhost:5000/api/facilities')
+    axios.get(`${API_URL}/api/facilities`)
       .then(res => {
         if (res.data.length === 0) {
-          axios.post('http://localhost:5000/api/facilities', {
+          axios.post(`${API_URL}/api/facilities`, {
             name: 'Main Plant',
             description: 'Default facility for all equipment',
             location: 'Amandi Energy Site'
@@ -43,38 +35,20 @@ function App() {
       .catch(err => console.error('Error fetching facilities:', err));
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      fetchFacilities(); // only fetch when logged in
-    }
-  }, [fetchFacilities, user]);
-
   const handleFacilityAdded = (newFacility) => {
     setFacilities(prev => [...prev, newFacility]);
   };
 
-  const handleFacilityDeleted = (deletedId) => {
-    setFacilities(prev => prev.filter(f => f._id !== deletedId));
-    if (selectedFacility === deletedId) {
-      setSelectedFacility('all');
-    }
-  };
-
-  const deleteFacility = (facilityId, facilityName) => {
-    if (window.confirm(`Delete facility "${facilityName}"? Equipment will become unassigned.`)) {
-      axios.delete(`http://localhost:5000/api/facilities/${facilityId}`)
+  const deleteFacility = (id, name) => {
+    if (window.confirm(`Are you sure you want to delete facility "${name}"?`)) {
+      axios.delete(`${API_URL}/api/facilities/${id}`)
         .then(() => {
-          handleFacilityDeleted(facilityId);
-          alert(`Facility "${facilityName}" deleted successfully.`);
-        })
-        .catch(err => {
-          if (err.response?.status === 400) {
-            alert('Cannot delete: This facility has equipment assigned. Please reassign or delete equipment first.');
-          } else {
-            console.error(err);
-            alert('Error deleting facility.');
+          setFacilities(prev => prev.filter(f => f._id !== id));
+          if (selectedFacility === id) {
+            setSelectedFacility('all');
           }
-        });
+        })
+        .catch(err => console.error(err));
     }
   };
 
@@ -82,57 +56,31 @@ function App() {
     setSelectedFacility(newValue);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    setFacilities([]);
-    setSelectedFacility('all');
-  };
+  useEffect(() => {
+    fetchFacilities();
+  }, [fetchFacilities]);
 
-  // If not logged in → show LoginPage
-  if (!user) {
-    return <LoginPage onLoginSuccess={(loggedInUser) => setUser(loggedInUser)} />;
-  }
-
-  // Logged in → show dashboard
   return (
-    <>
-      {/* Top Bar with Logout */}
-      <AppBar position="static" sx={{ mb: 4 }}>
-        <Toolbar sx={{ justifyContent: 'space-between' }}>
-          <Typography variant="h6" component="div">
-            PE Power - Operational Assets Dashboard
-          </Typography>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="body2">
-              Welcome, {user.name || user.email}
-            </Typography>
-            <Button
-              color="inherit"
-              startIcon={<LogoutIcon />}
-              onClick={handleLogout}
-              sx={{ fontWeight: 'bold' }}
-            >
-              Logout
-            </Button>
-          </Box>
-        </Toolbar>
-      </AppBar>
-
-      <Container maxWidth="xl" sx={{ position: 'relative' }}>
-        {/* Amandi Energy Logo */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 8,
-            left: 16,
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center'
-          }}
-        >
+    <Box
+      sx={{
+        minHeight: '100vh',
+        backgroundImage: 'url(/power-plant-bg.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+        py: 4,
+      }}
+    >
+      <Container maxWidth="xl">
+        {/* Logo */}
+        <Box sx={{
+          position: 'absolute',
+          top: 16,
+          left: 16,
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center'
+        }}>
           <img
             src="/amandi-logo.png"
             alt="Amandi Energy Logo"
@@ -146,8 +94,19 @@ function App() {
           />
         </Box>
 
+        {/* Title */}
+        <Typography
+          variant="h3"
+          gutterBottom
+          align="center"
+          color="white"
+          sx={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)', mt: 2 }}
+        >
+          PE Power - Operational Assets Dashboard
+        </Typography>
+
         {/* Facility Tabs + Add Button */}
-        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Tabs
             value={selectedFacility}
             onChange={handleTabChange}
@@ -161,12 +120,10 @@ function App() {
                 zIndex: 0,
               },
               '& .MuiTab-root': {
-                textTransform: 'none',
-                minWidth: 'auto',
-                padding: '10px 24px',
-                marginRight: '12px',
                 borderRadius: '30px',
-                backgroundColor: 'transparent',
+                minHeight: 42,
+                minWidth: 120,
+                margin: '0 6px',
                 color: 'black !important',
                 fontWeight: '600',
                 fontSize: '1rem',
@@ -221,7 +178,7 @@ function App() {
           showAll={selectedFacility === 'all'}
         />
 
-        {/* Facility Form Modal */}
+        {/* Facility Form */}
         <FacilityForm
           open={openFacilityForm}
           onClose={() => setOpenFacilityForm(false)}
@@ -231,7 +188,7 @@ function App() {
           }}
         />
       </Container>
-    </>
+    </Box>
   );
 }
 
