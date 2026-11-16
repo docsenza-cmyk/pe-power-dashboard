@@ -28,6 +28,8 @@ import ParameterLogForm from './ParameterLogForm';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
   const [equipment, setEquipment] = useState([]);
   const [filteredEquipment, setFilteredEquipment] = useState([]);
@@ -46,45 +48,28 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
   const [expandedGalleryRow, setExpandedGalleryRow] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [photoCaption, setPhotoCaption] = useState('');
-  const [debugInfo, setDebugInfo] = useState('');
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
   const [logModalOpen, setLogModalOpen] = useState(false);
   const [selectedEquipmentForLog, setSelectedEquipmentForLog] = useState(null);
 
-  // Debug function
-  const checkBackendConnection = useCallback(async () => {
-    try {
-      const response = await axios.get('http://localhost:5000/api/equipment');
-      setDebugInfo(`Backend connected. Equipment count: ${response.data?.length || 0}`);
-      return response.data;
-    } catch (error) {
-      setDebugInfo(`Backend error: ${error.message}`);
-      return null;
-    }
-  }, []);
-
   const fetchEquipment = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/api/equipment');
+      const response = await axios.get(`${API_URL}/api/equipment`);
       let data = response.data || [];
 
       if (!showAll && facilityId) {
         data = data.filter(item => {
-          const matches = (item?.facility && item.facility._id === facilityId) ||
-                         item?.facility === facilityId;
-          return matches;
+          return (item?.facility && item.facility._id === facilityId) || item?.facility === facilityId;
         });
       }
 
       setEquipment(data);
       setFilteredEquipment(data);
-      setDebugInfo(`Loaded ${data.length} equipment`);
     } catch (err) {
       console.error('Error fetching equipment:', err);
-      setDebugInfo(`Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -92,7 +77,7 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
 
   const fetchFacilities = useCallback(async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/facilities');
+      const response = await axios.get(`${API_URL}/api/facilities`);
       setFacilities(response.data || []);
     } catch (err) {
       console.error('Error fetching facilities:', err);
@@ -100,20 +85,16 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
   }, []);
 
   const fetchParameters = useCallback((equipmentId) => {
-    axios.get(`http://localhost:5000/api/parameters/equipment/${equipmentId}`)
+    axios.get(`${API_URL}/api/parameters/equipment/${equipmentId}`)
       .then(res => setParameters(prev => ({ ...prev, [equipmentId]: res.data || [] })))
       .catch(err => console.error('Error fetching parameters:', err));
   }, []);
 
-  // Initial load
   useEffect(() => {
-    checkBackendConnection().then(() => {
-      fetchEquipment();
-      fetchFacilities();
-    });
-  }, [checkBackendConnection, fetchEquipment, fetchFacilities]);
+    fetchEquipment();
+    fetchFacilities();
+  }, [fetchEquipment, fetchFacilities]);
 
-  // Auto-fetch parameters
   useEffect(() => {
     if (filteredEquipment.length > 0) {
       filteredEquipment.forEach(eq => {
@@ -124,7 +105,6 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
     }
   }, [filteredEquipment, parameters, fetchParameters]);
 
-  // Search filter
   useEffect(() => {
     const lowerTerm = searchTerm.toLowerCase();
     const filtered = equipment.filter(item =>
@@ -135,10 +115,9 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
     setFilteredEquipment(filtered);
   }, [searchTerm, equipment]);
 
-  // Delete equipment
   const handleDelete = (id) => {
     if (window.confirm('Delete this equipment and all its data?')) {
-      axios.delete(`http://localhost:5000/api/equipment/${id}`)
+      axios.delete(`${API_URL}/api/equipment/${id}`)
         .then(() => fetchEquipment())
         .catch(err => {
           console.error('Delete error:', err);
@@ -147,13 +126,11 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
     }
   };
 
-  // Delete photo
   const deletePhoto = async (equipmentId, photoIndex) => {
     if (window.confirm('Delete this photo?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/equipment/${equipmentId}/photo/${photoIndex}`);
+        await axios.delete(`${API_URL}/api/equipment/${equipmentId}/photo/${photoIndex}`);
         fetchEquipment();
-        alert('Photo deleted successfully!');
       } catch (err) {
         console.error('Delete photo error:', err);
         alert('Failed to delete photo');
@@ -161,12 +138,10 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
     }
   };
 
-  // Toggle functions
   const toggleChart = (id) => setExpandedChartRow(prev => prev === id ? null : id);
   const toggleLogs = (id) => setExpandedLogsRow(prev => prev === id ? null : id);
   const toggleGallery = (id) => setExpandedGalleryRow(prev => prev === id ? null : id);
 
-  // Camera functions
   const openCamera = (item) => {
     setSelectedCameraEquipment(item);
     setPhotoCaption('');
@@ -197,7 +172,7 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
 
       try {
         await axios.post(
-          `http://localhost:5000/api/equipment/${selectedCameraEquipment._id}/photo`,
+          `${API_URL}/api/equipment/${selectedCameraEquipment._id}/photo`,
           formData,
           { headers: { 'Content-Type': 'multipart/form-data' } }
         );
@@ -219,14 +194,12 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
     }, 'image/jpeg', 0.8);
   };
 
-  // Get status color
   const getStatusColor = (status) => {
     if (status === 'Operational') return 'success';
     if (status === 'Maintenance') return 'warning';
     return 'error';
   };
 
-  // Dynamic Chart for ALL numeric parameters
   const getChartData = (eqId, customParameters) => {
     const logs = parameters[eqId] || [];
     const labels = logs.map(p => new Date(p.timestamp).toLocaleTimeString());
@@ -249,7 +222,6 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
     return { labels, datasets };
   };
 
-  // Export to Excel
   const exportToExcel = () => {
     if (filteredEquipment.length === 0) {
       alert('No data to export in this facility');
@@ -279,8 +251,8 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
       ]);
 
       wsData.push([]);
-
       wsData.push(['Parameter Log History']);
+
       const headerRow = ['Timestamp'];
       eq.customParameters?.forEach(param => {
         headerRow.push(`${param.label || param.name}${param.unit ? ` (${param.unit})` : ''}`);
@@ -310,64 +282,15 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
 
   return (
     <>
-{/* MOVED LOGO TO THE RED SHADED AREA (Top-Left) */}
-{!showAll && facilityName && (
-  <Box sx={{ 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: 2.5, 
-    mb: 3,
-    px: 2,
-    py: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.98)',
-    borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-    borderBottom: '2px solid #1976d2'
-  }}>
-    {/* AMANDI Logo */}
-    <img 
-      src="/amandi-logo.png" 
-      alt="AMANDI ENERGY" 
-      style={{ 
-        maxWidth: '170px', 
-        height: 'auto',
-        flexShrink: 0
-      }} 
-    />
-
-    {/* Facility Name */}
-    <Box>
-      <Typography 
-        variant="h5" 
-        component="h1" 
-        fontWeight="bold" 
-        color="primary.main"
-      >
-        {facilityName}
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        Operational Assets Dashboard
-      </Typography>
-    </Box>
-  </Box>
-)}
-
       {/* Toolbar */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <TextField
-            label="Search equipment in this facility"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            variant="outlined"
-            sx={{ width: '400px' }}
-          />
-          {debugInfo && (
-            <Typography variant="caption" color="textSecondary">
-              {debugInfo}
-            </Typography>
-          )}
-        </Box>
+        <TextField
+          label="Search equipment in this facility"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          variant="outlined"
+          sx={{ width: '400px' }}
+        />
         <Box>
           <IconButton onClick={fetchEquipment} color="primary" title="Refresh" sx={{ mr: 1 }}>
             <RefreshIcon />
@@ -388,14 +311,9 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
         </Box>
       </Box>
 
-      {/* Loading or content */}
       {loading ? (
-        <Box display="flex" justifyContent="center" alignItems="center" flexDirection="column" mt={8} gap={2}>
+        <Box display="flex" justifyContent="center" mt={8}>
           <CircularProgress />
-          <Typography color="textSecondary">Loading equipment data...</Typography>
-          <Button variant="outlined" size="small" onClick={fetchEquipment}>
-            Retry Loading
-          </Button>
         </Box>
       ) : filteredEquipment.length === 0 ? (
         <Box textAlign="center" mt={4} p={4}>
@@ -480,10 +398,8 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
                     </TableCell>
                   </TableRow>
 
-                  {/* Collapsible Sections */}
                   <TableRow>
                     <TableCell colSpan={6} sx={{ p: 0 }}>
-                      {/* Dynamic Chart */}
                       <Collapse in={expandedChartRow === item._id} timeout="auto" unmountOnExit>
                         <Box sx={{ m: 3 }}>
                           <Typography variant="h6" gutterBottom>
@@ -504,21 +420,17 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
                         </Box>
                       </Collapse>
 
-                      {/* Dynamic Logs */}
                       <Collapse in={expandedLogsRow === item._id} timeout="auto" unmountOnExit>
                         <Box sx={{ m: 3 }}>
                           <Typography variant="h6" gutterBottom>
                             Parameter Logs - {item.name}
                           </Typography>
-
-                          {item.customParameters?.length === 0 ? (
-                            <Typography color="textSecondary">No parameters defined yet.</Typography>
-                          ) : parameters[item._id]?.length > 0 ? (
+                          {parameters[item._id]?.length > 0 ? (
                             <Table size="small">
                               <TableHead>
                                 <TableRow>
                                   <TableCell><strong>Date/Time</strong></TableCell>
-                                  {item.customParameters.map((param) => (
+                                  {item.customParameters?.map((param) => (
                                     <TableCell key={param.name}>
                                       <strong>{param.label || param.name}{param.unit ? ` (${param.unit})` : ''}</strong>
                                     </TableCell>
@@ -529,7 +441,7 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
                                 {parameters[item._id].map((log, idx) => (
                                   <TableRow key={idx} hover>
                                     <TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell>
-                                    {item.customParameters.map((param) => (
+                                    {item.customParameters?.map((param) => (
                                       <TableCell key={param.name}>
                                         {log.values?.[param.name] !== undefined ? log.values[param.name] : '-'}
                                       </TableCell>
@@ -539,12 +451,11 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
                               </TableBody>
                             </Table>
                           ) : (
-                            <Typography color="textSecondary">No logs yet. Click "Log" to add the first entry!</Typography>
+                            <Typography color="textSecondary">No logs yet.</Typography>
                           )}
                         </Box>
                       </Collapse>
 
-                      {/* Gallery Section */}
                       <Collapse in={expandedGalleryRow === item._id} timeout="auto" unmountOnExit>
                         <Box sx={{ m: 3 }}>
                           <Typography variant="h6" gutterBottom>
@@ -566,9 +477,6 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
                                     <Typography variant="body2" color="text.secondary" noWrap>
                                       {photo.caption || 'No caption'}
                                     </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {photo.uploadedAt ? new Date(photo.uploadedAt).toLocaleString() : 'No date'}
-                                    </Typography>
                                   </CardContent>
                                   <CardActions sx={{ justifyContent: 'flex-end', py: 0 }}>
                                     <IconButton size="small" color="error" onClick={() => deletePhoto(item._id, idx)}>
@@ -579,7 +487,7 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
                               ))}
                             </Box>
                           ) : (
-                            <Typography color="textSecondary">No photos yet. Use camera to add!</Typography>
+                            <Typography color="textSecondary">No photos yet.</Typography>
                           )}
                         </Box>
                       </Collapse>
@@ -592,7 +500,6 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
         </TableContainer>
       )}
 
-      {/* Forms */}
       <EquipmentForm
         open={openEquipmentForm}
         onClose={() => setOpenEquipmentForm(false)}
@@ -608,20 +515,17 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
         onAdded={() => fetchParameters(selectedEquipmentId)}
       />
 
-      {/* Parameter Logging Modal */}
       <ParameterLogForm
         open={logModalOpen}
         onClose={() => setLogModalOpen(false)}
         equipment={selectedEquipmentForLog}
-        onLogSaved={(newLog) => {
+        onLogSaved={() => {
           if (selectedEquipmentForLog) {
             fetchParameters(selectedEquipmentForLog._id);
           }
-          alert('Parameter log saved successfully!');
         }}
       />
 
-      {/* Camera Modal */}
       <Dialog 
         open={openCameraModal} 
         onClose={() => {
@@ -659,7 +563,6 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
             label="Photo Caption (Optional)"
             value={photoCaption}
             onChange={(e) => setPhotoCaption(e.target.value)}
-            placeholder="Enter a description for this photo..."
             variant="outlined"
             sx={{ mb: 2 }}
           />
@@ -672,21 +575,19 @@ const EquipmentTable = ({ facilityId, showAll = false, facilityName }) => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button 
-            onClick={() => {
-              setOpenCameraModal(false);
-              if (videoRef.current?.srcObject) {
-                videoRef.current.srcObject.getTracks().forEach(track => track.stop());
-              }
-            }}
-          >
+          <Button onClick={() => {
+            setOpenCameraModal(false);
+            if (videoRef.current?.srcObject) {
+              videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+            }
+          }}>
             Cancel
           </Button>
           <Button 
             variant="contained" 
             color="primary" 
             onClick={capturePhoto} 
-            disabled={uploading || !selectedCameraEquipment}
+            disabled={uploading}
           >
             {uploading ? 'Capturing...' : 'Capture & Save Photo'}
           </Button>
